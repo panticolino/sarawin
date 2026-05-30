@@ -1,0 +1,50 @@
+<RCC>
+    <qresource prefix="/sql">
+        <file alias="schema.sql">sql/schema.sql</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file alias="play.svg">icons/play.svg</file>
+        <file alias="pause.svg">icons/pause.svg</file>
+        <file alias="square.svg">icons/square.svg</file>
+        <file alias="skip-forward.svg">icons/skip-forward.svg</file>
+        <file alias="volume-2.svg">icons/volume-2.svg</file>
+        <file alias="volume-x.svg">icons/volume-x.svg</file>
+        <file alias="folder.svg">icons/folder.svg</file>
+        <file alias="music.svg">icons/music.svg</file>
+        <file alias="settings.svg">icons/settings.svg</file>
+        <file alias="clock.svg">icons/clock.svg</file>
+        <file alias="search.svg">icons/search.svg</file>
+        <file alias="plus.svg">icons/plus.svg</file>
+        <file alias="x.svg">icons/x.svg</file>
+        <file alias="check.svg">icons/check.svg</file>
+        <file alias="radio.svg">icons/radio.svg</file>
+        <file alias="radio-tower.svg">icons/radio-tower.svg</file>
+        <file alias="list.svg">icons/list.svg</file>
+        <file alias="chevron-right.svg">icons/chevron-right.svg</file>
+        <file alias="chevron-left.svg">icons/chevron-left.svg</file>
+        <file alias="arrow-right.svg">icons/arrow-right.svg</file>
+        <file alias="monitor-speaker.svg">icons/monitor-speaker.svg</file>
+        <file alias="shuffle.svg">icons/shuffle.svg</file>
+        <file alias="repeat.svg">icons/repeat.svg</file>
+        <file alias="zap.svg">icons/zap.svg</file>
+        <file alias="power.svg">icons/power.svg</file>
+        <file alias="file-audio.svg">icons/file-audio.svg</file>
+        <file alias="scroll-text.svg">icons/scroll-text.svg</file>
+        <file alias="save.svg">icons/save.svg</file>
+        <file alias="download.svg">icons/download.svg</file>
+        <file alias="upload.svg">icons/upload.svg</file>
+        <file alias="rotate-ccw.svg">icons/rotate-ccw.svg</file>
+        <file alias="circle-stop.svg">icons/circle-stop.svg</file>
+        <file alias="circle.svg">icons/circle.svg</file>
+        <file alias="sliders-horizontal.svg">icons/sliders-horizontal.svg</file>
+        <file alias="layout-dashboard.svg">icons/layout-dashboard.svg</file>
+        <file alias="user.svg">icons/user.svg</file>
+        <file alias="megaphone.svg">icons/megaphone.svg</file>
+        <file alias="mic.svg">icons/mic.svg</file>
+        <file alias="disc-2.svg">icons/disc-2.svg</file>
+    </qresource>
+    <qresource prefix="/style">
+        <file alias="dark.qss">style/dark.qss</file>
+        <file alias="light.qss">style/light.qss</file>
+    </qresource>
+</RCC>
