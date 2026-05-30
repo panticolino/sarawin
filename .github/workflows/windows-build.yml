@@ -1,11 +1,15 @@
 name: Build Windows (x64)
 
+# Produce un .exe de SARA Libre para Windows 10/11 (64-bit).
+# Se ejecuta solo (push a main/master) o a mano desde la pestaña "Actions".
+# El resultado queda en Actions > [tu run] > Artifacts > "saralibre-windows-x64".
+
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:
+  workflow_dispatch:   # botón "Run workflow" manual
 
 jobs:
   windows-build:
@@ -14,12 +18,13 @@ jobs:
 
     defaults:
       run:
-        shell: msys2 {0}
+        shell: msys2 {0}   # todos los pasos corren dentro del shell MSYS2
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ── Toolchain + dependencias (todo viene de los repos de MSYS2) ──
       - name: Setup MSYS2 / MinGW64
         uses: msys2/setup-msys2@v2
         with:
@@ -45,6 +50,7 @@ jobs:
             mingw-w64-x86_64-tomlplusplus
             mingw-w64-x86_64-ntldd
 
+      # ── Localizar el CMakeLists.txt (raíz del repo o subcarpeta saralibre/) ──
       - name: Detect source dir
         id: src
         run: |
@@ -53,10 +59,11 @@ jobs:
           elif [ -f "saralibre/CMakeLists.txt" ]; then
             echo "dir=saralibre" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::No encuentro CMakeLists.txt en la raiz ni en saralibre/"
+            echo "::error::No encuentro CMakeLists.txt en la raíz ni en saralibre/"
             exit 1
           fi
 
+      # ── Configurar y compilar (Release, sin tests) ──
       - name: Configure
         run: >-
           cmake -S "${{ steps.src.outputs.dir }}" -B build -G Ninja
@@ -66,12 +73,26 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
 
+      # ── Empaquetar: exe + DLLs + plugins Qt + plugins GStreamer ──
       - name: Package
         run: bash package-windows.sh build dist-win
 
+      # ── Subir el resultado como artifact descargable ──
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: saralibre-windows-x64
           path: dist-win/
           if-no-files-found: error
+
+      # ── (Opcional) Adjuntar un .zip a la Release cuando publiques un tag vX.Y.Z ──
+      - name: Zip for release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd dist-win && 7z a -tzip ../saralibre-windows-x64.zip . && cd ..
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: saralibre-windows-x64.zip
