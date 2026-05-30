@@ -37,7 +37,7 @@ copy_deps() {
         if [ -f "$p" ]; then
           cp -n "$p" "$OUT_DIR/" 2>/dev/null || true
         fi
-      done
+      done || true
 }
 
 echo ">> Resolviendo DLLs del ejecutable"
