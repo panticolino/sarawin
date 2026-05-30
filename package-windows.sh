@@ -61,6 +61,32 @@ fi
 echo ">> Quitando DLLs de Microsoft incompatibles (d3dcompiler/opengl32sw)"
 rm -f "$OUT_DIR/d3dcompiler_47.dll" "$OUT_DIR/opengl32sw.dll"
 
+# ── Soporte de iconos SVG ────────────────────────────────────────────────
+# Los iconos de la interfaz son archivos .svg cargados con QIcon. Para que
+# Qt pueda dibujarlos hace falta la librería Qt6Svg y sus plugins
+# (imageformats/qsvg + iconengines/qsvgicon). windeployqt no los arrastra
+# porque la app no enlaza el módulo Svg directamente, así que los copiamos
+# a mano; si no, los iconos salen en blanco.
+echo ">> Agregando soporte de iconos SVG (Qt6Svg + plugins)"
+cp -n "$MINGW/bin/Qt6Svg.dll" "$OUT_DIR/" 2>/dev/null || true
+
+# Localizar la carpeta de plugins de Qt6 (varía según el layout de MSYS2)
+QT_PLUGINS=""
+for cand in "$MINGW/share/qt6/plugins" "$MINGW/lib/qt6/plugins"; do
+  [ -d "$cand" ] && QT_PLUGINS="$cand" && break
+done
+if [ -n "$QT_PLUGINS" ]; then
+  mkdir -p "$OUT_DIR/imageformats" "$OUT_DIR/iconengines"
+  cp -n "$QT_PLUGINS/imageformats/qsvg.dll"   "$OUT_DIR/imageformats/" 2>/dev/null || true
+  cp -n "$QT_PLUGINS/iconengines/qsvgicon.dll" "$OUT_DIR/iconengines/" 2>/dev/null || true
+else
+  echo "   (aviso: no se encontró la carpeta de plugins de Qt6)"
+fi
+# Resolver las DLLs de las que dependen Qt6Svg y sus plugins
+[ -f "$OUT_DIR/Qt6Svg.dll" ]               && copy_deps "$OUT_DIR/Qt6Svg.dll"
+[ -f "$OUT_DIR/imageformats/qsvg.dll" ]    && copy_deps "$OUT_DIR/imageformats/qsvg.dll"
+[ -f "$OUT_DIR/iconengines/qsvgicon.dll" ] && copy_deps "$OUT_DIR/iconengines/qsvgicon.dll"
+
 # ── Plugins de GStreamer + su scanner ──
 echo ">> Copiando plugins de GStreamer"
 cp -r "$MINGW/lib/gstreamer-1.0/." "$OUT_DIR/gstreamer-1.0/"
