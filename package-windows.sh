@@ -68,21 +68,37 @@ rm -f "$OUT_DIR/d3dcompiler_47.dll" "$OUT_DIR/opengl32sw.dll"
 # porque la app no enlaza el módulo Svg directamente, así que los copiamos
 # a mano; si no, los iconos salen en blanco.
 echo ">> Agregando soporte de iconos SVG (Qt6Svg + plugins)"
-cp -n "$MINGW/bin/Qt6Svg.dll" "$OUT_DIR/" 2>/dev/null || true
 
-# Localizar la carpeta de plugins de Qt6 (varía según el layout de MSYS2)
-QT_PLUGINS=""
-for cand in "$MINGW/share/qt6/plugins" "$MINGW/lib/qt6/plugins"; do
-  [ -d "$cand" ] && QT_PLUGINS="$cand" && break
-done
-if [ -n "$QT_PLUGINS" ]; then
-  mkdir -p "$OUT_DIR/imageformats" "$OUT_DIR/iconengines"
-  cp -n "$QT_PLUGINS/imageformats/qsvg.dll"   "$OUT_DIR/imageformats/" 2>/dev/null || true
-  cp -n "$QT_PLUGINS/iconengines/qsvgicon.dll" "$OUT_DIR/iconengines/" 2>/dev/null || true
+# 1) La librería Qt6Svg.dll
+SVG_DLL="$(find "$MINGW" -maxdepth 2 -name 'Qt6Svg.dll' 2>/dev/null | head -1)"
+if [ -n "$SVG_DLL" ]; then
+  cp -f "$SVG_DLL" "$OUT_DIR/"
+  echo "   ✓ Qt6Svg.dll  ($SVG_DLL)"
 else
-  echo "   (aviso: no se encontró la carpeta de plugins de Qt6)"
+  echo "   ✗ NO se encontró Qt6Svg.dll"
 fi
-# Resolver las DLLs de las que dependen Qt6Svg y sus plugins
+
+# 2) El plugin de formato de imagen SVG (qsvg.dll → imageformats/)
+QSVG="$(find "$MINGW" -name 'qsvg.dll' -path '*imageformats*' 2>/dev/null | head -1)"
+if [ -n "$QSVG" ]; then
+  mkdir -p "$OUT_DIR/imageformats"
+  cp -f "$QSVG" "$OUT_DIR/imageformats/"
+  echo "   ✓ imageformats/qsvg.dll  ($QSVG)"
+else
+  echo "   ✗ NO se encontró imageformats/qsvg.dll"
+fi
+
+# 3) El motor de íconos SVG (qsvgicon.dll → iconengines/)
+QSVGICON="$(find "$MINGW" -name 'qsvgicon.dll' -path '*iconengines*' 2>/dev/null | head -1)"
+if [ -n "$QSVGICON" ]; then
+  mkdir -p "$OUT_DIR/iconengines"
+  cp -f "$QSVGICON" "$OUT_DIR/iconengines/"
+  echo "   ✓ iconengines/qsvgicon.dll  ($QSVGICON)"
+else
+  echo "   ✗ NO se encontró iconengines/qsvgicon.dll"
+fi
+
+# 4) Resolver las DLLs de las que dependen Qt6Svg y sus plugins
 [ -f "$OUT_DIR/Qt6Svg.dll" ]               && copy_deps "$OUT_DIR/Qt6Svg.dll"
 [ -f "$OUT_DIR/imageformats/qsvg.dll" ]    && copy_deps "$OUT_DIR/imageformats/qsvg.dll"
 [ -f "$OUT_DIR/iconengines/qsvgicon.dll" ] && copy_deps "$OUT_DIR/iconengines/qsvgicon.dll"
