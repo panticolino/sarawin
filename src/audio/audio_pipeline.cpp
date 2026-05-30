@@ -93,6 +93,35 @@ bool AudioPipeline::initialize(const QString& audioDevice)
     // misma robustez del código previo a fase 9.
     GstElement* actualSink = nullptr;
 
+#ifdef _WIN32
+    // ── Windows: salida por WASAPI (sistema de audio nativo de Windows) ──
+    // Fallback a directsoundsink y, por último, autoaudiosink (que deja a
+    // GStreamer elegir el mejor sink disponible).
+    if (audioDevice.isEmpty() || audioDevice == "default") {
+        actualSink = gst_element_factory_make("wasapisink", "actual_sink");
+        if (!actualSink)
+            actualSink = gst_element_factory_make("directsoundsink", "actual_sink");
+        if (!actualSink)
+            actualSink = gst_element_factory_make("autoaudiosink", "actual_sink");
+        if (actualSink)
+            LOG_INFO("[AudioPipeline:{}] salida de audio Windows (default)",
+                     static_cast<int>(id_));
+    } else {
+        actualSink = gst_element_factory_make("wasapisink", "actual_sink");
+        if (actualSink) {
+            g_object_set(actualSink, "device",
+                         audioDevice.toUtf8().constData(), nullptr);
+            LOG_INFO("[AudioPipeline:{}] wasapisink configurado con device='{}'",
+                     static_cast<int>(id_), audioDevice.toStdString());
+        } else {
+            actualSink = gst_element_factory_make("autoaudiosink", "actual_sink");
+            if (actualSink)
+                LOG_WARN("[AudioPipeline:{}] wasapisink no disponible, "
+                         "usando autoaudiosink como fallback",
+                         static_cast<int>(id_));
+        }
+    }
+#else
     if (audioDevice.isEmpty() || audioDevice == "default") {
         // Sin dispositivo específico: PulseAudio (o pipewire-pulse) elige
         // el default del sistema.
@@ -128,6 +157,7 @@ bool AudioPipeline::initialize(const QString& audioDevice)
             }
         }
     }
+#endif // _WIN32
 
     // Crear bin: audioconvert → [rgvolume] → level → volume → sink
     // rgvolume: normalización automática por ReplayGain tags

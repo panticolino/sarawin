@@ -54,7 +54,12 @@ CodecCheckResult checkCodecs()
         // tanto en PulseAudio puro como en PipeWire-con-shim. Esto permite
         // que el operador elija tarjetas con los nombres que ve en pactl
         // (mismos en ambos servidores), evitando inconsistencias.
+#ifdef _WIN32
+        // En Windows la salida va por WASAPI (sistema de audio nativo).
+        {"Salida de audio", "wasapisink|directsoundsink|autoaudiosink", "(salida)", true},
+#else
         {"PulseAudio",   "pulsesink",                       "(salida)",     true},
+#endif
         {"Playbin",      "playbin",                         "(reproductor)",true},
     };
 
@@ -111,6 +116,12 @@ CodecCheckResult checkCodecs()
 
     // Generar comando de instalación
     if (!result.allCriticalFound || !result.missingOptional.isEmpty()) {
+#ifdef _WIN32
+        result.installCommand =
+            "Faltan componentes de audio. Esta versión para Windows ya debería "
+            "incluirlos; si el problema persiste, reinstale SARA Libre desde el "
+            "paquete original.";
+#else
         if (distro == "debian") {
             result.installCommand =
                 "sudo apt install gstreamer1.0-libav gstreamer1.0-plugins-good "
@@ -136,6 +147,7 @@ CodecCheckResult checkCodecs()
                 "gstreamer-plugins-bad, gstreamer-plugins-ugly, "
                 "gstreamer-pulseaudio (nombres varían según distribución)";
         }
+#endif // _WIN32
     }
 
     LOG_INFO("[CodecCheck] Resultado: {} críticos OK, {} faltantes, {} opcionales faltantes",

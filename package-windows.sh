@@ -53,6 +53,14 @@ fi
 "$WINDEPLOY" --release --compiler-runtime --no-translations \
   --dir "$OUT_DIR" "$OUT_DIR/saralibre.exe"
 
+# windeployqt agrega DLLs de Microsoft (d3dcompiler_47.dll, opengl32sw.dll)
+# que están compiladas con el runtime de Visual Studio. En una compilación
+# MinGW eso provoca el cartel "no se encuentra el punto de entrada
+# __std_parallel_algorithms_hw_threads ... d3dcompiler_47.dll". Una app Qt
+# Widgets con MinGW no las necesita, así que las quitamos.
+echo ">> Quitando DLLs de Microsoft incompatibles (d3dcompiler/opengl32sw)"
+rm -f "$OUT_DIR/d3dcompiler_47.dll" "$OUT_DIR/opengl32sw.dll"
+
 # ── Plugins de GStreamer + su scanner ──
 echo ">> Copiando plugins de GStreamer"
 cp -r "$MINGW/lib/gstreamer-1.0/." "$OUT_DIR/gstreamer-1.0/"

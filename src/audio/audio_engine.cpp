@@ -270,6 +270,7 @@ QVector<AudioEngine::AudioDeviceInfo> AudioEngine::availableInputSources()
     // Si pactl no responde en 1.5s es porque pulseaudio/pipewire-pulse
     // está colgado o no instalado — caemos al fallback de GstDeviceMonitor
     // sin congelar la GUI durante 5 segundos enteros.
+#ifndef _WIN32
     QProcess pactl;
     pactl.start("pactl", {"list", "sources"});
 
@@ -321,6 +322,7 @@ QVector<AudioEngine::AudioDeviceInfo> AudioEngine::availableInputSources()
                      QString::fromUtf8(pactl.readAllStandardError()).toStdString());
         }
     }
+#endif // _WIN32
 
     // Fallback: GstDeviceMonitor si pactl no funcionó
     if (devices.isEmpty()) {
