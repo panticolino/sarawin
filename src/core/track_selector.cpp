@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QMap>
 #include <QRandomGenerator>
+#include <QThreadPool>
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
 #include <algorithm>
@@ -22,23 +23,62 @@ const QStringList& TrackSelector::filesForFolder(const QString& folderPath)
 {
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     const bool sameFolder = (folderPath == cachedFolder_);
-    const bool fresh = !cachedFiles_.isEmpty()
-                    && sameFolder
-                    && (nowMs - cacheTimeMs_) < static_cast<qint64>(cacheTtlSec_) * 1000;
+    const bool haveCache  = !cachedFiles_.isEmpty() && sameFolder;
+    const bool stale      = (nowMs - cacheTimeMs_) >= static_cast<qint64>(cacheTtlSec_) * 1000;
 
-    if (fresh) {
-        return cachedFiles_;  // Reutilizar: NO tocar el disco de red
+    // Caso 1: todavía NO hay lista (primer arranque) o cambió la carpeta.
+    // Necesitamos algo YA para poder elegir, así que esta única vez escaneamos
+    // de forma directa. (Si más adelante se quiere que ni el arranque trabe,
+    // se puede arrancar con la lista vacía y rellenar al terminar el escaneo.)
+    if (!haveCache) {
+        cachedFiles_  = FileScanner::scanFolder(folderPath, true);
+        cachedFolder_ = folderPath;
+        cacheTimeMs_  = nowMs;
+        LOG_INFO("[TrackSelector] Carpeta escaneada: {} ({} archivos)",
+                 folderPath.toStdString(), cachedFiles_.size());
+        return cachedFiles_;
     }
 
-    // (Re)escanear una sola vez. Esto sigue corriendo en el hilo principal, así
-    // que la PRIMERA vez (al arrancar) puede tardar un instante en un disco de
-    // red; pero ya no se repite en cada cambio de canción.
-    cachedFiles_  = FileScanner::scanFolder(folderPath, true);
-    cachedFolder_ = folderPath;
-    cacheTimeMs_  = nowMs;
-    LOG_INFO("[TrackSelector] Carpeta escaneada: {} ({} archivos) — en caché por {}s",
-             folderPath.toStdString(), cachedFiles_.size(), cacheTtlSec_);
+    // Caso 2: hay lista pero ya está vieja → lanzar un re-escaneo EN SEGUNDO
+    // PLANO (sin tocar la pantalla) y devolver mientras tanto la lista actual.
+    // Una lista un poco vieja no molesta para elegir el próximo tema.
+    if (stale && !scanInProgress_) {
+        startBackgroundScan(folderPath);
+    }
+
+    // Caso 3 (y mientras corre el refresco): usar la lista en caché.
     return cachedFiles_;
+}
+
+void TrackSelector::startBackgroundScan(const QString& folderPath)
+{
+    scanInProgress_ = true;
+    // Marcamos el tiempo ahora para no relanzar el escaneo en cada selección
+    // mientras este todavía está corriendo.
+    cacheTimeMs_ = QDateTime::currentMSecsSinceEpoch();
+
+    const QString folder = folderPath;
+    LOG_INFO("[TrackSelector] Re-escaneo en segundo plano iniciado: {}",
+             folder.toStdString());
+
+    // Ejecutar el escaneo (lento, de red) en un hilo del pool. FileScanner sólo
+    // usa variables locales, así que es seguro fuera del hilo principal.
+    QThreadPool::globalInstance()->start([this, folder]() {
+        QStringList result = FileScanner::scanFolder(folder, true);
+
+        // Volver al hilo principal para guardar el resultado sin condiciones de
+        // carrera. Si el TrackSelector ya no existe, Qt descarta esta llamada.
+        QMetaObject::invokeMethod(this, [this, folder, result]() {
+            if (!result.isEmpty()) {
+                cachedFiles_  = result;
+                cachedFolder_ = folder;
+            }
+            cacheTimeMs_    = QDateTime::currentMSecsSinceEpoch();
+            scanInProgress_ = false;
+            LOG_INFO("[TrackSelector] Re-escaneo en segundo plano completo: {} archivos",
+                     cachedFiles_.size());
+        }, Qt::QueuedConnection);
+    });
 }
 
 QString TrackSelector::selectFromFolder(const QString& folderPath, const QString& source)

@@ -72,10 +72,12 @@ private:
     // escanea una sola vez y se reutiliza; se refresca como mucho cada
     // cacheTtlSec_ segundos (los archivos nuevos aparecen dentro de ese lapso).
     const QStringList& filesForFolder(const QString& folderPath);
+    void startBackgroundScan(const QString& folderPath);
     QString     cachedFolder_;
     QStringList cachedFiles_;
     qint64      cacheTimeMs_ = 0;
     int         cacheTtlSec_ = 600;  // 10 minutos
+    bool        scanInProgress_ = false;
 };
 
 } // namespace sara
