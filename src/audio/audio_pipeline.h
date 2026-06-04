@@ -183,6 +183,12 @@ private:
     // Timer Qt para posición + watchdogs
     QTimer* positionTimer_ = nullptr;
 
+    // Bus de GStreamer + timer que lo vacía nosotros mismos. Necesario porque
+    // gst_bus_add_watch() depende del main loop de GLib, que Qt NO ejecuta en
+    // Windows (sí en Linux). Ver initialize() en el .cpp.
+    GstBus* bus_ = nullptr;
+    QTimer* busPollTimer_ = nullptr;
+
     // ── Detección de silencio (umbral de nivel sostenido) ──
     bool    silenceDetectionEnabled_ = true;
     int     silenceConsecutiveMs_ = 0;

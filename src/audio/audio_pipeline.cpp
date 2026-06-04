@@ -26,6 +26,16 @@ AudioPipeline::~AudioPipeline()
 void AudioPipeline::cleanup()
 {
     stop();
+    // Detener el sondeo del bus y soltar la referencia antes de destruir el pipeline
+    if (busPollTimer_) {
+        busPollTimer_->stop();
+        busPollTimer_->deleteLater();
+        busPollTimer_ = nullptr;
+    }
+    if (bus_) {
+        gst_object_unref(bus_);
+        bus_ = nullptr;
+    }
     if (pipeline_) {
         gst_object_unref(pipeline_);
         pipeline_ = nullptr;
@@ -287,10 +297,33 @@ bool AudioPipeline::initialize(const QString& audioDevice)
     // beneficio real. Si se necesita gapless puro en el futuro, se vuelve
     // a conectar entonces.
 
-    // Configurar bus de mensajes
-    GstBus* bus = gst_element_get_bus(pipeline_);
-    gst_bus_add_watch(bus, onBusMessage, this);
-    gst_object_unref(bus);
+    // Configurar bus de mensajes.
+    //
+    // IMPORTANTE (defecto Windows): gst_bus_add_watch() entrega los mensajes a
+    // través del main loop de GLib. En Linux, Qt itera ese main loop (usa el
+    // dispatcher de glib), así que los mensajes llegan. En WINDOWS, Qt usa su
+    // propio dispatcher y NUNCA itera el main loop de GLib: los mensajes del
+    // bus (level/VU, EOS de fin de pista, tags, errores, cambios de estado)
+    // jamás se entregaban. Eso causaba VU congelado, línea de tiempo quieta,
+    // metadatos sin actualizar y —en modo manual— que la pista no avanzara al
+    // terminar (nunca llegaba el EOS).
+    //
+    // Solución multiplataforma: NO usar el watch de GLib; vaciar el bus
+    // nosotros mismos con un QTimer (Qt lo ejecuta en todos los sistemas).
+    bus_ = gst_element_get_bus(pipeline_);
+    busPollTimer_ = new QTimer(this);
+    busPollTimer_->setInterval(50);
+    connect(busPollTimer_, &QTimer::timeout, this, [this]() {
+        if (!bus_) return;
+        GstMessage* m = nullptr;
+        while ((m = gst_bus_pop(bus_)) != nullptr) {
+            // Reutilizamos el mismo handler que usaba el watch. Con gst_bus_pop
+            // el mensaje es nuestro, así que lo liberamos tras procesarlo.
+            onBusMessage(bus_, m, this);
+            gst_message_unref(m);
+        }
+    });
+    busPollTimer_->start();
 
     // Timer de posición (emite ~4 veces por segundo) — usa método de instancia
     // para que la lógica de los watchdogs sea fácilmente testeable / lineable.
