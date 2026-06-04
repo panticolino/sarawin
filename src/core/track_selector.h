@@ -51,6 +51,10 @@ public:
     /// Limpiar todas las pistas pendientes
     void clearPending();
 
+    /// Forzar un re-escaneo de la carpeta en la próxima selección
+    /// (p.ej. tras agregar música nueva o cambiar de carpeta).
+    void invalidateFolderCache() { cachedFiles_.clear(); cachedFolder_.clear(); cacheTimeMs_ = 0; }
+
 private:
     /// Cuando todas las pistas fueron reproducidas, elegir la más antigua
     QString selectOldestPlayed(const QStringList& tracks) const;
@@ -60,6 +64,18 @@ private:
     int noRepeatArtistTracks_ = 0;  // 0 = disabled
     QSet<QString> pendingTracks_;
     QStringList recentArtists_;     // Últimos N artistas reproducidos
+
+    // ── Caché del escaneo de carpeta ───────────────────────────────────────
+    // Antes se releía TODA la carpeta de música en cada selección. En un disco
+    // de red (R:/) eso significaba miles de viajes por red por cada canción, y
+    // congelaba la interfaz ("no responde") en cada cambio de tema. Ahora se
+    // escanea una sola vez y se reutiliza; se refresca como mucho cada
+    // cacheTtlSec_ segundos (los archivos nuevos aparecen dentro de ese lapso).
+    const QStringList& filesForFolder(const QString& folderPath);
+    QString     cachedFolder_;
+    QStringList cachedFiles_;
+    qint64      cacheTimeMs_ = 0;
+    int         cacheTtlSec_ = 600;  // 10 minutos
 };
 
 } // namespace sara

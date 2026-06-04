@@ -18,9 +18,32 @@ TrackSelector::TrackSelector(QObject* parent)
 {
 }
 
+const QStringList& TrackSelector::filesForFolder(const QString& folderPath)
+{
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    const bool sameFolder = (folderPath == cachedFolder_);
+    const bool fresh = !cachedFiles_.isEmpty()
+                    && sameFolder
+                    && (nowMs - cacheTimeMs_) < static_cast<qint64>(cacheTtlSec_) * 1000;
+
+    if (fresh) {
+        return cachedFiles_;  // Reutilizar: NO tocar el disco de red
+    }
+
+    // (Re)escanear una sola vez. Esto sigue corriendo en el hilo principal, así
+    // que la PRIMERA vez (al arrancar) puede tardar un instante en un disco de
+    // red; pero ya no se repite en cada cambio de canción.
+    cachedFiles_  = FileScanner::scanFolder(folderPath, true);
+    cachedFolder_ = folderPath;
+    cacheTimeMs_  = nowMs;
+    LOG_INFO("[TrackSelector] Carpeta escaneada: {} ({} archivos) — en caché por {}s",
+             folderPath.toStdString(), cachedFiles_.size(), cacheTtlSec_);
+    return cachedFiles_;
+}
+
 QString TrackSelector::selectFromFolder(const QString& folderPath, const QString& source)
 {
-    QStringList allFiles = FileScanner::scanFolder(folderPath, true);
+    const QStringList& allFiles = filesForFolder(folderPath);
     if (allFiles.isEmpty()) {
         LOG_WARN("[TrackSelector] No hay archivos de audio en: {}", folderPath.toStdString());
         return {};
