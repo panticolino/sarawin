@@ -111,8 +111,8 @@ cp -r "$MINGW/lib/gstreamer-1.0/." "$OUT_DIR/gstreamer-1.0/"
 # NO usa, y que pueden CRASHEAR al inicializarse en PCs sin ese hardware/driver
 # (p.ej. AMD AMF: libgstamfcodec.dll). Esto era lo que hacía que el programa se
 # cerrara solo en algunas máquinas.
-echo ">> Quitando plugins de GPU/video innecesarios (evita cierres en PCs sin esa GPU)"
-for p in amfcodec nvcodec qsv d3d11 d3d12 winscreencap; do
+echo ">> Quitando plugins de GPU/video innecesarios (evita cierres y carteles en PCs sin esa GPU)"
+for p in amfcodec nvcodec qsv d3d11 d3d12 winscreencap vulkan va; do
   rm -f "$OUT_DIR/gstreamer-1.0/libgst${p}.dll"
 done
 
@@ -144,6 +144,13 @@ for plugin in "$OUT_DIR"/gstreamer-1.0/*.dll; do
   copy_deps "$plugin"
 done
 shopt -u nullglob
+
+# Quitar las librerías auxiliares de Vulkan/VA que algún plugin pudo arrastrar
+# a la raíz. Dan el cartel "No se encuentra el punto de entrada
+# vkCmdPipelineBarrier2 ... libgstvulkan-1.0-0.dll" en PCs cuyo vulkan-1.dll es
+# más viejo. Una radio (solo audio) no las necesita.
+echo ">> Quitando librerías auxiliares de Vulkan/VA (evita el cartel vkCmdPipelineBarrier2)"
+rm -f "$OUT_DIR"/libgstvulkan-1.0-0.dll "$OUT_DIR"/libgstva-1.0-0.dll
 
 # ── Launcher .bat que fija las rutas de GStreamer y arranca la app ──
 echo ">> Generando saralibre.bat (launcher)"
