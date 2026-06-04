@@ -106,12 +106,36 @@ fi
 # ── Plugins de GStreamer + su scanner ──
 echo ">> Copiando plugins de GStreamer"
 cp -r "$MINGW/lib/gstreamer-1.0/." "$OUT_DIR/gstreamer-1.0/"
-# el scanner vive en distintos lugares según versión; lo buscamos
+
+# Quitar plugins de codecs por GPU / captura de video que una radio (solo audio)
+# NO usa, y que pueden CRASHEAR al inicializarse en PCs sin ese hardware/driver
+# (p.ej. AMD AMF: libgstamfcodec.dll). Esto era lo que hacía que el programa se
+# cerrara solo en algunas máquinas.
+echo ">> Quitando plugins de GPU/video innecesarios (evita cierres en PCs sin esa GPU)"
+for p in amfcodec nvcodec qsv d3d11 d3d12 winscreencap; do
+  rm -f "$OUT_DIR/gstreamer-1.0/libgst${p}.dll"
+done
+
+# El gst-plugin-scanner.exe es CLAVE: hace que GStreamer revise los plugins en un
+# proceso aparte. Si falta, los revisa DENTRO del programa y un plugin que falle
+# tira abajo toda la app. Su ubicación cambia según la versión de MSYS2, así que
+# lo buscamos a fondo (esta era la causa: antes no se copiaba y faltaba).
+echo ">> Buscando gst-plugin-scanner.exe"
+SCANNER=""
 for cand in \
   "$MINGW/bin/gst-plugin-scanner.exe" \
-  "$MINGW/lib/gstreamer-1.0/gst-plugin-scanner.exe"; do
-  [ -f "$cand" ] && cp "$cand" "$OUT_DIR/gstreamer-1.0/"
+  "$MINGW/lib/gstreamer-1.0/gst-plugin-scanner.exe" \
+  "$MINGW/libexec/gstreamer-1.0/gst-plugin-scanner.exe"; do
+  [ -f "$cand" ] && SCANNER="$cand" && break
 done
+[ -z "$SCANNER" ] && SCANNER="$(find "$MINGW" -name 'gst-plugin-scanner.exe' 2>/dev/null | head -1 || true)"
+if [ -n "$SCANNER" ]; then
+  cp -f "$SCANNER" "$OUT_DIR/gstreamer-1.0/"
+  copy_deps "$OUT_DIR/gstreamer-1.0/gst-plugin-scanner.exe"
+  echo "   ✓ gst-plugin-scanner.exe ($SCANNER)"
+else
+  echo "   ✗ NO se encontró gst-plugin-scanner.exe (revisar instalación de GStreamer)"
+fi
 
 # Los plugins de GStreamer arrastran sus propias DLLs (libav, codecs, etc.):
 echo ">> Resolviendo DLLs de cada plugin de GStreamer"
