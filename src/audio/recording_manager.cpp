@@ -132,24 +132,31 @@ void RecordingManager::createNewSegment()
         return;
     }
 
-    // Bus para detectar errores
-    GstBus* bus = gst_element_get_bus(pipeline_);
-    gst_bus_add_watch(bus, [](GstBus*, GstMessage* msg, gpointer data) -> gboolean {
-        auto* self = static_cast<RecordingManager*>(data);
-        if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
-            GError* err = nullptr;
-            gchar* debug = nullptr;
-            gst_message_parse_error(msg, &err, &debug);
-            QString errorMsg = err ? QString::fromUtf8(err->message) : "Error desconocido";
-            LOG_ERROR("[Recording] Error: {} — {}", errorMsg.toStdString(),
-                      debug ? debug : "");
-            if (err) g_error_free(err);
-            if (debug) g_free(debug);
-            emit self->errorOccurred(errorMsg);
+    // Bus para detectar errores.
+    // Igual que en AudioPipeline: el watch de GLib no se entrega con Qt en
+    // Windows, así que sondeamos el bus con un QTimer (funciona en todos los SO).
+    bus_ = gst_element_get_bus(pipeline_);
+    busPollTimer_ = new QTimer(this);
+    busPollTimer_->setInterval(100);
+    connect(busPollTimer_, &QTimer::timeout, this, [this]() {
+        if (!bus_) return;
+        GstMessage* msg = nullptr;
+        while ((msg = gst_bus_pop(bus_)) != nullptr) {
+            if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
+                GError* err = nullptr;
+                gchar* debug = nullptr;
+                gst_message_parse_error(msg, &err, &debug);
+                QString errorMsg = err ? QString::fromUtf8(err->message) : "Error desconocido";
+                LOG_ERROR("[Recording] Error: {} — {}", errorMsg.toStdString(),
+                          debug ? debug : "");
+                if (err) g_error_free(err);
+                if (debug) g_free(debug);
+                emit errorOccurred(errorMsg);
+            }
+            gst_message_unref(msg);
         }
-        return TRUE;
-    }, this);
-    gst_object_unref(bus);
+    });
+    busPollTimer_->start();
 
     // Iniciar
     GstStateChangeReturn ret = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
@@ -195,7 +202,14 @@ void RecordingManager::destroyPipeline()
 {
     if (!pipeline_) return;
 
-    GstBus* bus = gst_element_get_bus(pipeline_);
+    // Detener el sondeo del bus antes de tocar el pipeline
+    if (busPollTimer_) {
+        busPollTimer_->stop();
+        busPollTimer_->deleteLater();
+        busPollTimer_ = nullptr;
+    }
+
+    GstBus* bus = bus_ ? bus_ : gst_element_get_bus(pipeline_);
 
     // Enviar EOS para cerrar correctamente el archivo (cabeceras MP3/Ogg, etc.)
     gst_element_send_event(pipeline_, gst_event_new_eos());
@@ -207,14 +221,10 @@ void RecordingManager::destroyPipeline()
 
     gst_element_set_state(pipeline_, GST_STATE_NULL);
 
-    // Eliminar el bus watch ANTES del unref del pipeline.
-    // Sin esto el GSource del watch queda huérfano y, tras varios start/stop,
-    // se acumulan watches activos sobre objetos liberados → potencial leak
-    // y mensajes desviados a callbacks con punteros colgantes.
     if (bus) {
-        gst_bus_remove_watch(bus);
         gst_object_unref(bus);
     }
+    bus_ = nullptr;
 
     gst_object_unref(pipeline_);
     pipeline_ = nullptr;

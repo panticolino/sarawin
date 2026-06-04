@@ -58,6 +58,8 @@ private:
     QString monitorDevice() const;
 
     GstElement* pipeline_ = nullptr;
+    GstBus*     bus_ = nullptr;          // ver startRecording (mismo motivo Windows que AudioPipeline)
+    QTimer*     busPollTimer_ = nullptr;
 
     QString outputFolder_;
     QString format_ = "mp3";
