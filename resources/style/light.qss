@@ -23,9 +23,12 @@ QMainWindow > QWidget {
 /* ── Header ────────────────────────────────────────────── */
 
 #headerWidget {
+    /* Barra superior oscura también en modo claro: los textos e íconos del
+       encabezado son de color claro (fijados en código), así que sobre un
+       fondo oscuro se leen bien. El cuerpo de la app sigue siendo claro. */
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #e0e2f0, stop:1 #d5d7e8);
-    border-bottom: 1px solid rgba(102, 126, 234, 0.25);
+        stop:0 #1a1a35, stop:1 #252545);
+    border-bottom: 1px solid rgba(102, 126, 234, 0.3);
     min-height: 78px;
 }
 
