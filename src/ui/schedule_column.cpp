@@ -155,7 +155,7 @@ void ScheduleColumn::setupUI()
         "border-radius: 4px 4px 0 0;");
     auto* headerLayout = new QHBoxLayout(headerBar);
     headerLayout->setContentsMargins(10, 0, 10, 0);
-    auto* headerTitle = new QLabel(tr("PROGRAMACIÓN PRINCIPAL"));
+    auto* headerTitle = new QLabel(tr("PROGRAMACIÓN MUSICAL"));
     headerTitle->setStyleSheet(
         "font-size: 11px; font-weight: 700; letter-spacing: 1px; "
         "color: white; background: transparent;");

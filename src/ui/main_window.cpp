@@ -641,7 +641,8 @@ void MainWindow::setupUI()
         }
     });
 
-    splitter->addWidget(scheduleCol_);
+    // (scheduleCol_ se agrega al splitter más abajo: primero Publicidad/Eventos,
+    //  luego Programación Musical.)
 
     // Columna 2: Publicidad/Eventos
     eventsCol_ = new EventsColumn(this);
@@ -694,7 +695,10 @@ void MainWindow::setupUI()
         }
     });
 
-    splitter->addWidget(eventsCol_);
+    // Orden de columnas (izquierda → derecha): Publicidad/Eventos primero,
+    // luego Programación Musical. Por eso eventos se agrega ANTES que schedule.
+    splitter->addWidget(eventsCol_);    // Columna 1 (izquierda): Publicidad/Eventos
+    splitter->addWidget(scheduleCol_);  // Columna 2: Programación Musical
 
     // Columna 3: Asistente en Vivo + Explorador
     liveAssistCol_ = new LiveAssistColumn(this);
@@ -800,8 +804,8 @@ void MainWindow::setupUI()
     });
 
     // Proporciones de las columnas: 40% - 30% - 30%
-    splitter->setStretchFactor(0, 4);  // Schedule: ~36%
-    splitter->setStretchFactor(1, 4);  // Eventos: ~36%
+    splitter->setStretchFactor(0, 4);  // Publicidad/Eventos: ~36%
+    splitter->setStretchFactor(1, 4);  // Programación Musical: ~36%
     splitter->setStretchFactor(2, 3);  // Asistente: ~27%
 
     // Forzar proporciones iniciales después del layout
