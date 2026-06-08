@@ -14,6 +14,7 @@
 #include <QFrame>
 #include <QDateTime>
 #include <QApplication>
+#include <QPalette>
 #include <QFont>
 #include <QPainter>
 #include <QKeyEvent>
@@ -69,9 +70,13 @@ void PlaylistDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     QString startTime = index.data(StartTimeRole).toString();
     bool hasPisador = index.data(HasPisadorRole).toBool();
 
-    // Colores — texto blanco uniforme, primera fila más brillante
-    QColor textColor = isFirst ? QColor("#FFFFFF") : QColor("#FFFFFF");
-    QColor dimColor = QColor("#FFFFFF");
+    // Color de texto según el TEMA (claro u oscuro), tomado de la paleta del
+    // widget. Antes estaba fijo en blanco y, en modo claro, las filas con fondo
+    // claro quedaban invisibles. Ahora se adapta: oscuro en tema claro, claro
+    // en tema oscuro.
+    QColor textColor = option.palette.color(QPalette::Active, QPalette::Text);
+    QColor dimColor  = textColor;
+    dimColor.setAlpha(170);  // duración/hora un poco más tenues pero legibles
 
     int x = rect.left() + 6;
     int y = rect.top();
