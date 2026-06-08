@@ -924,7 +924,12 @@ void MainWindow::onPlay()
 
 void MainWindow::onPause()
 {
-    audio_->activeDeck()->pause();
+    auto* deck = audio_->activeDeck();
+    if (deck->state() == PlaybackState::Paused) {
+        deck->resume();   // segundo toque del mismo botón: continúa la reproducción
+    } else {
+        deck->pause();
+    }
 }
 
 void MainWindow::onStop()

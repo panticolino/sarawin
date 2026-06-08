@@ -371,11 +371,16 @@ void ScheduleColumn::setupUI()
     connect(playlistList_, &QListWidget::customContextMenuRequested,
             this, &ScheduleColumn::showContextMenu);
 
-    // Doble clic para saltar
+    // Doble clic: NO reproduce al instante. Marca la pista como SIGUIENTE,
+    // moviéndola al tope de la cola (que es lo próximo que va a sonar).
     connect(playlistList_, &QListWidget::itemDoubleClicked,
             this, [this](QListWidgetItem* item) {
         int row = playlistList_->row(item);
-        if (row >= 0) emit skipRequested(row);
+        if (row > 0) {
+            QListWidgetItem* moved = playlistList_->takeItem(row);
+            playlistList_->insertItem(0, moved);
+            playlistList_->setCurrentItem(moved);
+        }
     });
 
     // Tecla Suprimir + drops externos
