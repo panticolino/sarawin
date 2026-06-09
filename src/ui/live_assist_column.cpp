@@ -107,20 +107,12 @@ LiveAssistColumn::LiveAssistColumn(QWidget* parent)
     headerLayout->addStretch();
     layout->addWidget(headerBar);
 
-    auto* splitter = new QSplitter(Qt::Vertical);
-
-    auto* topWidget = new QWidget();
-    setupInstantPlay(topWidget);
-    splitter->addWidget(topWidget);
-
-    auto* bottomWidget = new QWidget();
-    setupFileExplorer(bottomWidget);
-    splitter->addWidget(bottomWidget);
-
-    splitter->setStretchFactor(0, 3);
-    splitter->setStretchFactor(1, 2);
-
-    layout->addWidget(splitter);
+    // La botonera (instant play) ya NO va arriba: ahora vive dentro del
+    // explorador, en la pestaña "Botonera" (se construye en setupFileExplorer).
+    // El explorador ocupa toda la altura de la columna.
+    auto* explorerWidget = new QWidget();
+    setupFileExplorer(explorerWidget);
+    layout->addWidget(explorerWidget, 1);
 
     // Atajos de teclado F1-F12
     for (int i = 0; i < 12; ++i) {
@@ -630,20 +622,7 @@ void LiveAssistColumn::setupFileExplorer(QWidget* container)
     outerLayout->setContentsMargins(0, 0, 0, 0);
     outerLayout->setSpacing(0);
 
-    // Sub-header explorador
-    auto* explorerHeader = new QWidget();
-    explorerHeader->setFixedHeight(28);
-    explorerHeader->setStyleSheet(
-        "background: rgba(102,126,234,0.12); "
-        "border-top: 1px solid rgba(102,126,234,0.15);");
-    auto* ehLayout = new QHBoxLayout(explorerHeader);
-    ehLayout->setContentsMargins(10, 0, 10, 0);
-    auto* ehTitle = new QLabel(tr("EXPLORADOR DE ARCHIVOS"));
-    ehTitle->setStyleSheet(
-        "font-size: 12px; font-weight: 700; letter-spacing: 1px; "
-        "color: rgba(102,126,234,0.8); background: transparent;");
-    ehLayout->addWidget(ehTitle);
-    outerLayout->addWidget(explorerHeader);
+    // (Sin sub-título "EXPLORADOR DE ARCHIVOS": se quitó para ganar espacio.)
 
     auto* explorerContent = new QWidget();
     auto* gl = new QVBoxLayout(explorerContent);
@@ -655,7 +634,7 @@ void LiveAssistColumn::setupFileExplorer(QWidget* container)
     navRow->setSpacing(4);
 
     auto setActiveNav = [this](QPushButton* active) {
-        for (auto* btn : {navRadioBtn_, navMusicBtn_, navHomeBtn_, navStreamsBtn_}) {
+        for (auto* btn : {navRadioBtn_, navBotoneraBtn_, navMusicBtn_, navHomeBtn_, navStreamsBtn_}) {
             if (btn) btn->setStyleSheet(NAV_INACTIVE_STYLE);
         }
         if (active) active->setStyleSheet(NAV_ACTIVE_STYLE);
@@ -673,6 +652,19 @@ void LiveAssistColumn::setupFileExplorer(QWidget* container)
             fileTree_->setRootIndex(fileModel_->index(radioFolder_));
         }
         setActiveNav(navRadioBtn_);
+    });
+
+    // Botonera (instant play / F1-F12) — pestaña entre Radio y Alternativa
+    navBotoneraBtn_ = new QPushButton(tintNavIcon(":/icons/zap.svg", Qt::white), tr(" Botonera"));
+    navBotoneraBtn_->setFixedHeight(28);
+    navBotoneraBtn_->setCursor(Qt::PointingHandCursor);
+    navBotoneraBtn_->setStyleSheet(NAV_INACTIVE_STYLE);
+    navBotoneraBtn_->setToolTip(tr("Botonera de reproducción instantánea (F1–F12)"));
+    navBotoneraBtn_->setAcceptDrops(true);     // permite arrastrar canciones sobre la pestaña
+    navBotoneraBtn_->installEventFilter(this);  // para cambiar de vista al arrastrar encima
+    connect(navBotoneraBtn_, &QPushButton::clicked, this, [this, setActiveNav]() {
+        showInstantView();
+        setActiveNav(navBotoneraBtn_);
     });
 
     // Alternativa
@@ -715,6 +707,7 @@ void LiveAssistColumn::setupFileExplorer(QWidget* container)
     });
 
     navRow->addWidget(navRadioBtn_);
+    navRow->addWidget(navBotoneraBtn_);
     navRow->addWidget(navMusicBtn_);
     navRow->addWidget(navHomeBtn_);
 
@@ -891,6 +884,14 @@ void LiveAssistColumn::setupFileExplorer(QWidget* container)
         }
     });
     gl->addWidget(streamList_, 1);
+
+    // ── Botonera (instant play) como vista alternativa del explorador ──
+    // Antes era una sección fija arriba; ahora se muestra al activar la
+    // pestaña "Botonera" (oculta por defecto).
+    instantContainer_ = new QWidget();
+    setupInstantPlay(instantContainer_);
+    instantContainer_->setVisible(false);
+    gl->addWidget(instantContainer_, 1);
 
     // Botón agregar stream (oculto por defecto, aparece con la vista streams)
     auto* addStreamBtn = new QPushButton(tintNavIcon(":/icons/plus.svg", Qt::white), tr("Agregar stream"));
@@ -1221,6 +1222,7 @@ void LiveAssistColumn::refreshStreamList()
 
 void LiveAssistColumn::showStreamView()
 {
+    if (instantContainer_) instantContainer_->hide();
     fileTree_->hide();
     searchResults_->hide();
     searchEdit_->hide();
@@ -1233,12 +1235,25 @@ void LiveAssistColumn::showStreamView()
 
 void LiveAssistColumn::showFileView()
 {
+    if (instantContainer_) instantContainer_->hide();
     streamList_->hide();
     if (auto* btn = findChild<QPushButton*>("addStreamBtn"))
         btn->hide();
     searchEdit_->show();
     if (auto* si = findChild<QLabel*>("searchIcon")) si->show();
     fileTree_->show();
+}
+
+void LiveAssistColumn::showInstantView()
+{
+    // Mostrar la botonera; ocultar todo lo demás del explorador.
+    fileTree_->hide();
+    searchResults_->hide();
+    searchEdit_->hide();
+    if (auto* si = findChild<QLabel*>("searchIcon")) si->hide();
+    streamList_->hide();
+    if (auto* btn = findChild<QPushButton*>("addStreamBtn")) btn->hide();
+    if (instantContainer_) instantContainer_->show();
 }
 
 void LiveAssistColumn::onStreamContextMenu(const QPoint& pos)
@@ -1450,6 +1465,22 @@ void LiveAssistColumn::addStreamToQueue(const QString& url, const QString& name)
 
 bool LiveAssistColumn::eventFilter(QObject* obj, QEvent* event)
 {
+    // Spring-load: al arrastrar un archivo sobre la pestaña "Botonera",
+    // cambiar automáticamente a la vista de botonera para poder soltarlo en un
+    // botón (estando en otra pestaña no se ven los botones).
+    if (obj == navBotoneraBtn_ &&
+        (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove)) {
+        auto* de = static_cast<QDragMoveEvent*>(event);
+        if (de->mimeData()->hasUrls()) {
+            showInstantView();
+            for (auto* b : {navRadioBtn_, navBotoneraBtn_, navMusicBtn_, navHomeBtn_, navStreamsBtn_})
+                if (b) b->setStyleSheet(NAV_INACTIVE_STYLE);
+            navBotoneraBtn_->setStyleSheet(NAV_ACTIVE_STYLE);
+            de->acceptProposedAction();
+            return true;
+        }
+    }
+
     // Drag & drop de archivos de audio sobre los botones F1-F12
     for (int i = 0; i < instantButtons_.size(); ++i) {
         if (obj != instantButtons_[i]) continue;
@@ -1474,6 +1505,19 @@ bool LiveAssistColumn::eventFilter(QObject* obj, QEvent* event)
                 for (const auto& url : de->mimeData()->urls()) {
                     QString path = url.toLocalFile();
                     if (!path.isEmpty() && FileScanner::isAudioFile(path)) {
+                        // Si el botón ya tiene una canción, pedir confirmación
+                        // antes de pisarla.
+                        if (repo_->getSlot(currentPresetId_, i)) {
+                            auto resp = QMessageBox::question(this,
+                                tr("Reemplazar botón"),
+                                tr("El botón F%1 ya tiene una canción asignada.\n"
+                                   "¿Querés reemplazarla por la nueva?").arg(i + 1),
+                                QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                            if (resp != QMessageBox::Yes) {
+                                de->acceptProposedAction();
+                                return true;   // cancelado: no se pisa
+                            }
+                        }
                         repo_->setSlot(currentPresetId_, i, path,
                                        QFileInfo(path).completeBaseName());
                         refreshButtons();

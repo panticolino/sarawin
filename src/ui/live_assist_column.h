@@ -88,6 +88,7 @@ private:
     void refreshStreamList();
     void showStreamView();
     void showFileView();
+    void showInstantView();
     void onStreamContextMenu(const QPoint& pos);
     void openAddStreamDialog();
     void addStreamToQueue(const QString& url, const QString& name);
@@ -100,6 +101,7 @@ private:
     bool                  operationMode_ = false;
 
     QVector<QPushButton*> instantButtons_;
+    QWidget*             instantContainer_ = nullptr;  // botonera como vista dentro del explorador
     QComboBox*            presetCombo_;
     QPushButton*          manageBtn_;
 
@@ -119,6 +121,7 @@ private:
     QFileSystemModel*     fileModel_;
     QLabel*               fileInfoLabel_;
     QPushButton*          navRadioBtn_ = nullptr;
+    QPushButton*          navBotoneraBtn_ = nullptr;
     QPushButton*          navHomeBtn_;
     QPushButton*          navMusicBtn_;
     QPushButton*          navStreamsBtn_ = nullptr;
