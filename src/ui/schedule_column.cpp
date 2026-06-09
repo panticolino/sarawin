@@ -371,15 +371,17 @@ void ScheduleColumn::setupUI()
     connect(playlistList_, &QListWidget::customContextMenuRequested,
             this, &ScheduleColumn::showContextMenu);
 
-    // Doble clic: NO reproduce al instante. Marca la pista como SIGUIENTE,
-    // moviéndola al tope de la cola (que es lo próximo que va a sonar).
+    // Doble clic: marca la pista como SIGUIENTE. NO reordena la lista: descarta
+    // las pistas que están ANTES de la marcada (se saltean, no se reproducen) y
+    // conserva el orden de la marcada en adelante. Las salteadas se liberan
+    // (dejan de estar "reservadas") vía removeRequested.
     connect(playlistList_, &QListWidget::itemDoubleClicked,
             this, [this](QListWidgetItem* item) {
         int row = playlistList_->row(item);
-        if (row > 0) {
-            QListWidgetItem* moved = playlistList_->takeItem(row);
-            playlistList_->insertItem(0, moved);
-            playlistList_->setCurrentItem(moved);
+        for (int i = 0; i < row; ++i) {
+            QString fp = getTrackAt(0);
+            removeFromQueue(0);
+            if (!fp.isEmpty()) emit removeRequested(fp);
         }
     });
 
